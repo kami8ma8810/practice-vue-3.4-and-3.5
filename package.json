@@ -1,0 +1,22 @@
+{
+  "name": "practice-vue-3.4-and-3.5",
+  "version": "1.0.0",
+  "description": "Practice using features available in Vue 3.4/3.5",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "vue",
+    "vue3.4",
+    "vue3.5",
+    "typescript",
+    "bun"
+  ],
+  "author": "Hayato Kamiyama",
+  "license": "ISC",
+  "volta": {
+    "node": "20.18.0"
+  }
+}
