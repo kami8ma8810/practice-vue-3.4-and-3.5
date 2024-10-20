@@ -34,6 +34,9 @@ Please create an Issue for bug reports or new feature suggestions. Pull requests
 ## License
 MIT License
 
+## Disclaimer
+This is a practice repository intended for learning purposes. While you may reference it for actual projects, please note that we cannot guarantee its suitability or take responsibility for its use in production environments. Use the code and information provided here at your own discretion and risk.
+
 ---
 
 <a name="japanese"></a>
@@ -66,3 +69,6 @@ MIT License
 
 ## ライセンス
 MITライセンス
+
+## 注意事項
+このリポジトリは学習目的の練習用です。実際のプロジェクトなどで参考にしていただいても構いませんが、本番環境での使用に関する適合性や責任は負いかねます。ここで提供されているコードや情報は、ご自身の判断と責任においてご利用ください。
