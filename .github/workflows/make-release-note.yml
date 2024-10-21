@@ -1,0 +1,116 @@
+name: Make Release Note Call
+
+on:
+  workflow_dispatch:
+    inputs:
+      prNumber:
+        type: string
+        description: "release pr number"
+        required: true
+      releasedRepository:
+        type: string
+        description: "released repository name"
+        required: true
+
+concurrency: make-release-note
+jobs:
+  make-release-note:
+    runs-on: ubuntu-latest
+    env:
+      RELEASED_REPOSITORY: ${{ github.event.inputs.releasedRepository }}
+      PR_NUMBER: ${{ github.event.inputs.prNumber }}
+      ORGANIZATION: "kami8ma8810"
+      DIRECTORY_NAME: "releases"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Date and Directory Path
+        run: |
+          YEAR=$(TZ=Asia/Tokyo date +'%Y')
+          MONTH=$(TZ=Asia/Tokyo date +'%m')
+          echo "YEAR=$YEAR" >> $GITHUB_ENV
+          echo "MONTH=$MONTH" >> $GITHUB_ENV
+          echo "FILE_PATH=${DIRECTORY_NAME}/$YEAR/$MONTH.md" >> $GITHUB_ENV
+
+      - name: Make File
+        id: make-file
+        run: |
+          if [ ! -d "${DIRECTORY_NAME}/$YEAR" ]; then
+            mkdir -p "${DIRECTORY_NAME}/$YEAR"
+          fi
+
+          if [ ! -f "$FILE_PATH" ]; then
+            touch "$FILE_PATH"
+          fi
+
+      - name: Get Pull Request Details
+        run: |
+          API_URL="https://api.github.com/repos/${ORGANIZATION}/${RELEASED_REPOSITORY}/pulls/${PR_NUMBER}"
+
+          PR_DATA=$(curl -H "Authorization: token ${{ secrets.ACTIONS_TOKEN }}" $API_URL)
+          echo PR_TITLE=$(echo "$PR_DATA" | jq -r '.title') >> $GITHUB_ENV
+          PR_BODY=$(echo "$PR_DATA" | jq -r '.body')
+
+          # すべてのラベル名をカンマ区切りの文字列として保存
+          LABEL_NAMES=$(echo "$PR_DATA" | jq -r '.labels | map(.name) | join(", ")')
+          echo "LABEL_NAMES=$LABEL_NAMES" >> $GITHUB_ENV
+
+          IFS=$'\n' PR_NUMBERS=($(echo "$PR_BODY" | grep -oP '(?<=#)\d+'))
+          echo "PR_NUMBERS=$(IFS=,; echo "${PR_NUMBERS[*]}")" >> $GITHUB_ENV
+          echo "API_URL=$API_URL" >> $GITHUB_ENV
+
+      - name: Fetch and Store PR Details as Sets
+        if: ${{ env.PR_NUMBERS != '' }}
+        run: |
+          IFS=',' read -r -a PR_NUMBERS_ARRAY <<< "${PR_NUMBERS}"
+
+          for PR_NUM in "${PR_NUMBERS_ARRAY[@]}"; do
+            PR_API_URL="https://api.github.com/repos/${ORGANIZATION}/${RELEASED_REPOSITORY}/pulls/${PR_NUM}"
+            PR_DETAILS=$(curl -H "Authorization: token ${{ secrets.ACTIONS_TOKEN }}" $PR_API_URL)
+            PR_TITLE=$(echo "$PR_DETAILS" | jq -r '.title')
+            PR_URL=$(echo "$PR_DETAILS" | jq -r '.html_url')
+            PR_AUTHOR=$(echo "$PR_DETAILS" | jq -r '.user.login')
+            PR_DETAILS_SETS+=("$PR_TITLE###$PR_URL###$PR_AUTHOR")  # '###'を区切り文字として使用
+            echo "Added to PR Details Sets: $PR_TITLE ### $PR_URL ### $PR_AUTHOR"
+          done
+
+          echo "PR_DETAILS_SETS=$(IFS='@@@'; echo "${PR_DETAILS_SETS[*]}")" >> $GITHUB_ENV
+
+      - name: Create Markdown Content
+        run: |
+          # PR_DETAILS_SETSを配列に変換
+          IFS='@@@' read -r -a PR_DETAILS_SETS_ARRAY <<< "${PR_DETAILS_SETS}"
+
+          RELEASE_DATETIME=$(TZ=Asia/Tokyo date +'%Y/%m/%d %H:%M:%S')
+
+          # 一時ファイルにMarkdown文字列を作成
+          echo "## [${RELEASE_DATETIME}](https://github.com/${ORGANIZATION}/${RELEASED_REPOSITORY}/pull/${PR_NUMBER})" > temp_markdown_content.txt
+          echo "Labels: $LABEL_NAMES" >> temp_markdown_content.txt
+          for PR_SET in "${PR_DETAILS_SETS_ARRAY[@]}"; do
+            # '###'を区切り文字として使用
+            TITLE=$(echo "$PR_SET" | awk -F '###' '{print $1}')
+            URL=$(echo "$PR_SET" | awk -F '###' '{print $2}')
+            AUTHOR=$(echo "$PR_SET" | awk -F '###' '{print $3}')
+
+            # Markdownフォーマットに従ってファイルに書き込み
+            echo "- (${AUTHOR}) ${TITLE}" >> temp_markdown_content.txt
+            echo "  - ${URL}" >> temp_markdown_content.txt
+          done
+
+          # 既存のファイル内容の先頭に新しい内容を追加
+          if [ -f "$FILE_PATH" ]; then
+              cat temp_markdown_content.txt "$FILE_PATH" > temp_file && mv temp_file "$FILE_PATH"
+          fi
+
+      - name: Commit Change
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add "$FILE_PATH"
+          git commit -m "make release note: ${FILE_PATH}" -a
+
+      - name: Push Changes
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
