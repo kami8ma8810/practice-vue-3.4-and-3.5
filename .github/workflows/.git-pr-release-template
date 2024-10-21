@@ -1,0 +1,4 @@
+🎉 Production Release
+<% pull_requests.each do |pr| -%>
+- #<%=pr.to_hash[:data][:number]%>
+<% end -%>
