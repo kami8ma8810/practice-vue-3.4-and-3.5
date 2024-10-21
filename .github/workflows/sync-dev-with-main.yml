@@ -1,0 +1,22 @@
+name: Sync Dev with Main
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # 手動実行のオプション
+
+jobs:
+  sync-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Sync dev with main
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git checkout dev
+          git merge origin/main
+          git push origin dev
