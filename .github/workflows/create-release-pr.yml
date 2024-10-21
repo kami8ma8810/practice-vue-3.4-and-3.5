@@ -1,5 +1,5 @@
 # リリース用プルリクエストを作成する
-name: create-release-pr
+name: Create release pr
 
 on:
   push:
